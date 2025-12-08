@@ -3,6 +3,8 @@ import * as vscode from "vscode";
 
 import * as fs from "fs";
 
+const IsDebug = false;
+
 // const errFile = "local/investigations/load-errors/err.log";
 export const VerifierFileName = "verifier.log";
 
@@ -13,11 +15,21 @@ export function Log(text: any) {
   logger.appendLine(text);
 }
 
+export function LogDebug(text: any) {
+  if (!IsDebug) {
+    return;
+  }
+  logger.appendLine(`[debug] ${text}`);
+}
+
 const BpfFolder: string = "bpf";
 
 export function BpfFiles() {
   let bpfFolder = path.join(GetWorkspacePath(), BpfFolder);
-  return fs.readdirSync(bpfFolder, {recursive: true, withFileTypes: true}).filter(item => !item.isDirectory()).map(item => item.parentPath)
+  return fs
+    .readdirSync(bpfFolder, { recursive: true, withFileTypes: true })
+    .filter((item) => !item.isDirectory())
+    .map((item) => item.parentPath);
 }
 
 export function GetWorkspacePath(): string {

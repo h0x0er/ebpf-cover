@@ -5,7 +5,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 
-import { GetWorkspacePath, Log, VerifierFileName } from "./utils";
+import { GetWorkspacePath, Log, LogDebug, VerifierFileName } from "./utils";
 
 let coverageDecor: vscode.TextEditorDecorationType;
 let verifierLastDecor: vscode.TextEditorDecorationType;
@@ -13,13 +13,16 @@ let verifierLastDecor: vscode.TextEditorDecorationType;
 let cachedRanges: Map<string, Array<vscode.TextLine>> = new Map();
 let cachedLastLines: Map<string, vscode.TextLine> = new Map();
 
+let shouldCover = false;
+
 export function activate(context: vscode.ExtensionContext) {
   Log("epbf-cover init");
 
   // Log(`[sub-files] ${BpfFiles()}`);
 
   let cover = vscode.commands.registerCommand("ebpf-cover.doCover", () => {
-    doCover(context);
+    shouldCover = true;
+    doCover();
   });
 
   let unCover = vscode.commands.registerCommand(
@@ -29,12 +32,21 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(cover);
   context.subscriptions.push(unCover);
+
+  // apply cover on current-file as well
+  vscode.window.onDidChangeActiveTextEditor((editor) => {
+    doCover();
+  });
 }
 
 // This method is called when your extension is deactivated
 export function deactivate() {}
 
-function doCover(context: vscode.ExtensionContext) {
+function doCover() {
+  if (!shouldCover) {
+    return;
+  }
+
   let ranges: Array<vscode.TextLine> = [];
   let seen = new Set<string>();
 
@@ -66,11 +78,11 @@ function doCover(context: vscode.ExtensionContext) {
     // gutterIconPath: context.asAbsolutePath("media/gutter-slashred.svg"),
   });
 
-  vscode.window.showInformationMessage("Adding coverage");
+  // vscode.window.showInformationMessage("Adding coverage");
 
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    vscode.window.showInformationMessage("No active editor.");
+    // vscode.window.showInformationMessage("No active editor.");
     return;
   }
 
@@ -81,10 +93,10 @@ function doCover(context: vscode.ExtensionContext) {
   const currentRanges = cachedRanges.get(currentFileName);
   const currentLastLine = cachedLastLines.get(currentFileName);
 
-  Log(`[doCover] ${currentFile} ${workspace}`);
+  LogDebug(`[doCover] ${currentFile} ${workspace}`);
 
   if (currentRanges !== undefined) {
-    Log("[doCover] cover already found !");
+    LogDebug("[doCover] cover already found !");
     ranges = currentRanges;
     lastLine = currentLastLine;
   } else {
@@ -107,7 +119,7 @@ function doCover(context: vscode.ExtensionContext) {
 
       switch (parseType) {
         case 1:
-          Log(`[doCover] ${line} parseType=${parseType}`);
+          LogDebug(`[doCover] ${line} parseType=${parseType}`);
 
           if (seen.has(line)) {
             continue;
@@ -138,7 +150,7 @@ function doCover(context: vscode.ExtensionContext) {
           }
           seen.add(line);
 
-          Log(`[doCover] ${line} parseType=${parseType}`);
+          LogDebug(`[doCover] ${line} parseType=${parseType}`);
 
           let pos = editor.document.getText().indexOf(line);
 
@@ -152,10 +164,10 @@ function doCover(context: vscode.ExtensionContext) {
     }
 
     cachedRanges.set(currentFileName, ranges);
-    cachedLastLines.set(currentFile, lastLine);
+    cachedLastLines.set(currentFileName, lastLine);
   }
 
-  Log(`[doCover] lines covered: ${ranges.length}`);
+  LogDebug(`[doCover] lines covered: ${ranges.length}`);
 
   editor.setDecorations(coverageDecor, ranges);
 
@@ -170,7 +182,12 @@ function doCover(context: vscode.ExtensionContext) {
 }
 
 function doUncover() {
-  vscode.window.showInformationMessage("ebpf-cover: uncovering");
+  if (!shouldCover) {
+    return;
+  }
+
+  shouldCover = false;
+  // vscode.window.showInformationMessage("ebpf-cover: uncovering");
 
   coverageDecor.dispose();
   verifierLastDecor.dispose();
