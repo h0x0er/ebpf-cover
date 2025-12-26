@@ -11,7 +11,7 @@
 			"request": "launch",
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}",
-				"/home/ghost/Documents/hackerspace/experiments/exp_ebpf/ebpf-cover/ebpf-cover"
+				"${workspaceFolder}/sample"
 			],
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"
