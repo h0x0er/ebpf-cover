@@ -6,12 +6,8 @@ import * as path from "path";
 import { GetWorkspacePath, Log, LogDebug, VerifierFileName } from "./utils";
 
 let coverageDecor: vscode.TextEditorDecorationType;
-let verifierLastDecor: vscode.TextEditorDecorationType;
 
 let cachedRanges: Map<string, Array<vscode.TextLine>> = new Map();
-let cachedLastLines: Map<string, vscode.TextLine> = new Map();
-
-let shouldCover = false;
 
 export function activate(context: vscode.ExtensionContext) {
   Log("epbf-cover init");
@@ -19,7 +15,6 @@ export function activate(context: vscode.ExtensionContext) {
   // Log(`[sub-files] ${BpfFiles()}`);
 
   let cover = vscode.commands.registerCommand("ebpf-cover.doCover", () => {
-    shouldCover = true;
     doCover();
   });
 
@@ -41,10 +36,6 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {}
 
 function doCover() {
-  if (!shouldCover) {
-    return;
-  }
-
   let ranges: Array<vscode.TextLine> = [];
   let seen = new Set<string>();
 
@@ -69,13 +60,6 @@ function doCover() {
     overviewRulerLane: vscode.OverviewRulerLane.Center,
   });
 
-  verifierLastDecor = vscode.window.createTextEditorDecorationType({
-    color: "red",
-    overviewRulerColor: "red", // <-- minimap highlight color
-    overviewRulerLane: vscode.OverviewRulerLane.Center,
-    // gutterIconPath: context.asAbsolutePath("media/gutter-slashred.svg"),
-  });
-
   // vscode.window.showInformationMessage("Adding coverage");
 
   const editor = vscode.window.activeTextEditor;
@@ -85,18 +69,23 @@ function doCover() {
   }
 
   const currentFile = editor.document.fileName;
+
+  let hasValidExt = currentFile.endsWith(".c") || currentFile.endsWith(".h");
+  if (!hasValidExt) {
+    LogDebug("[doCover] extention not supported");
+    return;
+  }
+
   const currentFileName = path.basename(currentFile);
   const workspace = GetWorkspacePath();
 
   const currentRanges = cachedRanges.get(currentFileName);
-  const currentLastLine = cachedLastLines.get(currentFileName);
 
   LogDebug(`[doCover] ${currentFile} ${workspace}`);
 
   if (currentRanges !== undefined) {
     LogDebug("[doCover] cover already found !");
     ranges = currentRanges;
-    lastLine = currentLastLine;
   } else {
     const verifierLogFile = path.join(workspace, VerifierFileName);
 
@@ -162,33 +151,16 @@ function doCover() {
     }
 
     cachedRanges.set(currentFileName, ranges);
-    cachedLastLines.set(currentFileName, lastLine);
   }
 
   LogDebug(`[doCover] lines covered: ${ranges.length}`);
 
   editor.setDecorations(coverageDecor, ranges);
-
-  if (lastLine !== undefined) {
-    let opt: vscode.DecorationOptions = {
-      range: lastLine.range,
-      hoverMessage: "Verifier stopped here",
-    };
-
-    editor.setDecorations(verifierLastDecor, [opt]);
-  }
 }
 
 function doUncover() {
-  if (!shouldCover) {
-    return;
-  }
-
-  shouldCover = false;
   // vscode.window.showInformationMessage("ebpf-cover: uncovering");
 
   coverageDecor.dispose();
-  verifierLastDecor.dispose();
-  cachedLastLines = new Map();
   cachedRanges = new Map();
 }

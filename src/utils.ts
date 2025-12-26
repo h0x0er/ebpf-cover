@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 
 import * as fs from "fs";
 
-const IsDebug = false;
+const IsDebug = true;
 
 // const errFile = "local/investigations/load-errors/err.log";
 export const VerifierFileName = "verifier.log";
