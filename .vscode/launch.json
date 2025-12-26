@@ -10,7 +10,8 @@
 			"type": "extensionHost",
 			"request": "launch",
 			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"/home/ghost/Documents/hackerspace/experiments/exp_ebpf/ebpf-cover/ebpf-cover"
 			],
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"
