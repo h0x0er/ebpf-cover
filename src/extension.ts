@@ -5,8 +5,11 @@ import * as path from "path";
 
 import {
   CreateLogger,
+  ExtractFailedFunction,
+  GetPatternRange,
   GetWorkspacePath,
   Log,
+  Logger,
   PickVerifierLogFile,
 } from "./utils";
 
@@ -20,12 +23,20 @@ let coverageDecor: vscode.TextEditorDecorationType =
 let cachedRanges: Map<string, Array<vscode.Range>> = new Map();
 let VerifierLogPath: string = "";
 
-let coverLogger = CreateLogger("doCover");
-let uncoverLogger = CreateLogger("doUncover");
-let log = CreateLogger("generic");
+let failedFuncDecor: vscode.TextEditorDecorationType;
+let failedFuncName = "";
+let failedLine = "";
+
+let coverLogger: Logger = CreateLogger("doCover");
+let uncoverLogger: Logger = CreateLogger("doUncover");
+let genericLogger: Logger = CreateLogger("generic");
+
+let extensionPath = "";
 
 export async function activate(context: vscode.ExtensionContext) {
-  log("epbf-cover init");
+  genericLogger.info("epbf-cover init");
+
+  extensionPath = context.extensionPath;
 
   let cover = vscode.commands.registerCommand("ebpf-cover.doCover", () => {
     doCover();
@@ -50,10 +61,10 @@ async function doCover() {
   const workspace = GetWorkspacePath();
 
   if (VerifierLogPath.length == 0) {
-    VerifierLogPath = path.join(workspace, "verifier.log2"); // default log path
+    VerifierLogPath = path.join(workspace, "verifier.log"); // default log path
   }
 
-  coverLogger(`logPath=${VerifierLogPath}`);
+  coverLogger.debug(`logPath=${VerifierLogPath}`);
   if (!fs.existsSync(VerifierLogPath)) {
     VerifierLogPath = await PickVerifierLogFile();
   }
@@ -65,24 +76,9 @@ async function doCover() {
 
   let seen = new Set<string>();
 
-  let lastLine: vscode.TextLine | undefined = {
-    firstNonWhitespaceCharacterIndex: 0,
-    lineNumber: 0,
-    text: "",
-    isEmptyOrWhitespace: false,
-    rangeIncludingLineBreak: new vscode.Range(
-      new vscode.Position(0, 0),
-      new vscode.Position(0, 0)
-    ),
-    range: new vscode.Range(
-      new vscode.Position(0, 0),
-      new vscode.Position(0, 0)
-    ),
-  };
-
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    coverLogger("[doUncover] no active editor");
+    coverLogger.debug("[doUncover] no active editor");
     return;
   }
 
@@ -90,22 +86,36 @@ async function doCover() {
 
   let hasValidExt = currentFile.endsWith(".c") || currentFile.endsWith(".h");
   if (!hasValidExt) {
-    coverLogger("extention not supported");
+    coverLogger.debug("extention not supported");
     return;
   }
 
   const currentFileName = path.basename(currentFile);
 
-  coverLogger(`${currentFile} ${workspace}`);
+  coverLogger.debug(`${currentFile} ${workspace}`);
 
   if (cachedRanges.has(currentFileName)) {
-    coverLogger("cover already found !");
+    coverLogger.debug("cover already found !");
   } else {
     const content = fs.readFileSync(VerifierLogPath, "utf8");
     const lines = content.split("\n");
 
     for (let i = 0; i < lines.length; i++) {
       let line = lines[i];
+
+      // extract failed line
+      if (failedFuncName.length === 0 && line.startsWith("libbpf:")) {
+        failedFuncName = ExtractFailedFunction(line);
+        if (failedFuncName.length > 0) {
+          failedLine = line;
+          genericLogger.debug(`[failedFunc] found ${failedFuncName}`);
+        }
+      }
+
+      // skip if not the C-source
+      if (!line.startsWith("; ")) {
+        continue;
+      }
 
       let parseType = 0;
       if (line.indexOf("@") > -1 && line.indexOf(currentFileName) > -1) {
@@ -114,11 +124,7 @@ async function doCover() {
 
       switch (parseType) {
         case 1:
-          coverLogger(`${line} parseType=${parseType}`);
-
-          if (!line.startsWith("; ")) {
-            continue;
-          }
+          coverLogger.debug(`${line} parseType=${parseType}`);
 
           let parts = line.split("@ ");
           let parts2 = parts[1].split(":"); // map_utils.h:9
@@ -141,28 +147,21 @@ async function doCover() {
           break;
 
         case 0:
-          if (!line.startsWith("; ")) {
-            continue;
-          }
-
           line = line.slice(2);
           if (seen.has(line)) {
             continue;
           }
           seen.add(line);
 
-          coverLogger(`${line} parseType=${parseType}`);
+          coverLogger.debug(`${line} parseType=${parseType}`);
 
-          let pos = editor.document.getText().indexOf(line);
-
-          if (pos > -1) {
-            lastLine = editor.document.lineAt(editor.document.positionAt(pos));
-
+          let mRange = GetPatternRange(editor.document, line);
+          if (mRange != undefined) {
             if (!cachedRanges.has(currentFileName)) {
               cachedRanges.set(currentFileName, []);
             }
 
-            cachedRanges.get(currentFileName)?.push(lastLine.range);
+            cachedRanges.get(currentFileName)?.push(mRange);
           }
 
           break;
@@ -172,22 +171,49 @@ async function doCover() {
 
   let ranges = cachedRanges.get(currentFileName);
   if (ranges !== undefined) {
-    coverLogger(`lines covered: ${ranges.length}`);
+    coverLogger.debug(`lines covered: ${ranges.length}`);
     editor.setDecorations(coverageDecor, ranges);
   } else {
     Log("coverage not found");
+  }
+
+  if (failedFuncName.length > 0) {
+    genericLogger.debug("[failedFunc] entering decorator");
+
+    if (failedFuncDecor === undefined) {
+      failedFuncDecor = vscode.window.createTextEditorDecorationType({
+        gutterIconPath: vscode.Uri.file(
+          path.join(extensionPath, "media", "error.svg")
+        ),
+        gutterIconSize: "contain",
+
+        backgroundColor: "rgba(233, 14, 14, 0.12)",
+        overviewRulerColor: new vscode.ThemeColor("editorError.foreground"),
+        overviewRulerLane: vscode.OverviewRulerLane.Right,
+      });
+    }
+
+    let mRange = GetPatternRange(editor.document, " " + failedFuncName + "(");
+    if (mRange != undefined) {
+      genericLogger.debug("[failedFunc] decorating");
+      editor.setDecorations(failedFuncDecor, [
+        { range: mRange, hoverMessage: failedLine },
+      ]);
+    }
   }
 }
 
 function doUncover() {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    uncoverLogger("no active editor");
+    uncoverLogger.debug("no active editor");
     return;
   }
 
-  uncoverLogger("removing coverage");
+  uncoverLogger.debug("removing coverage");
   editor.setDecorations(coverageDecor, []);
+  editor.setDecorations(failedFuncDecor, []);
+
   cachedRanges = new Map();
   VerifierLogPath = "";
 }
