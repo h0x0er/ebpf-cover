@@ -116,6 +116,13 @@ function doCover() {
           let parts = line.split("@ ");
           let parts2 = parts[1].split(":"); // map_utils.h:9
 
+          if (parts2[0].trim() !== currentFileName) {
+            LogDebug(
+              `[doCover] filnameMismatch current=${currentFile} got=${parts2[0]}  line="${line}"`
+            );
+            continue;
+          }
+
           let lineNum = parseInt(parts2[1], 10) - 1;
           if (lineNum < 0) {
             lineNum = 0;
