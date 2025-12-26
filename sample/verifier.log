@@ -1,0 +1,17 @@
+libbpf: prog 'handle_egress': BPF program load failed: Invalid argument
+libbpf: prog 'handle_egress': -- BEGIN PROG LOAD LOG --
+0: R1=ctx() R10=fp0
+; struct event *eve = bpf_ringbuf_reserve(&events, sizeof(struct event), 0);
+0: (18) r1 = 0xffff98d7a1820800       ; R1_w=map_ptr(map=events,ks=0,vs=0)
+2: (b7) r2 = 256                      ; R2_w=256
+3: (b7) r3 = 0                        ; R3_w=0
+4: (85) call bpf_ringbuf_reserve#131          ; R0_w=ringbuf_mem_or_null(id=2,ref_obj_id=2,sz=256) refs=2
+; }
+5: (b7) r0 = 1                        ; R0_w=1 refs=2
+6: (95) exit
+Unreleased reference id=2 alloc_insn=4
+processed 6 insns (limit 1000000) max_states_per_insn 0 total_states 0 peak_states 0 mark_read 0
+-- END PROG LOAD LOG --
+libbpf: prog 'handle_egress': failed to load: -22
+libbpf: failed to load object './main.bpf.o'
+Error: failed to load object file
