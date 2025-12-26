@@ -5,9 +5,14 @@ import * as path from "path";
 
 import { GetWorkspacePath, Log, LogDebug, VerifierFileName } from "./utils";
 
-let coverageDecor: vscode.TextEditorDecorationType;
+let coverageDecor: vscode.TextEditorDecorationType =
+  vscode.window.createTextEditorDecorationType({
+    backgroundColor: "rgba(255, 200, 0, 0.3)",
+    overviewRulerColor: "rgba(255, 200, 0, 0.8)", // <-- minimap highlight color
+    overviewRulerLane: vscode.OverviewRulerLane.Center,
+  });
 
-let cachedRanges: Map<string, Array<vscode.TextLine>> = new Map();
+let cachedRanges: Map<string, Array<vscode.Range>> = new Map();
 
 export function activate(context: vscode.ExtensionContext) {
   Log("epbf-cover init");
@@ -36,7 +41,6 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {}
 
 function doCover() {
-  let ranges: Array<vscode.TextLine> = [];
   let seen = new Set<string>();
 
   let lastLine: vscode.TextLine | undefined = {
@@ -54,17 +58,9 @@ function doCover() {
     ),
   };
 
-  coverageDecor = vscode.window.createTextEditorDecorationType({
-    backgroundColor: "rgba(255, 200, 0, 0.3)",
-    overviewRulerColor: "rgba(255, 200, 0, 0.8)", // <-- minimap highlight color
-    overviewRulerLane: vscode.OverviewRulerLane.Center,
-  });
-
-  // vscode.window.showInformationMessage("Adding coverage");
-
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    // vscode.window.showInformationMessage("No active editor.");
+    LogDebug("[doUncover] no active editor");
     return;
   }
 
@@ -83,9 +79,8 @@ function doCover() {
 
   LogDebug(`[doCover] ${currentFile} ${workspace}`);
 
-  if (currentRanges !== undefined) {
+  if (cachedRanges.has(currentFileName)) {
     LogDebug("[doCover] cover already found !");
-    ranges = currentRanges;
   } else {
     const verifierLogFile = path.join(workspace, VerifierFileName);
 
@@ -116,11 +111,10 @@ function doCover() {
           let parts = line.split("@ ");
           let parts2 = parts[1].split(":"); // map_utils.h:9
 
-          if (parts2[0].trim() !== currentFileName) {
-            LogDebug(
-              `[doCover] filnameMismatch current=${currentFile} got=${parts2[0]}  line="${line}"`
-            );
-            continue;
+          let curFileFromLine = parts2[0].trim();
+
+          if (!cachedRanges.has(curFileFromLine)) {
+            cachedRanges.set(curFileFromLine, []);
           }
 
           let lineNum = parseInt(parts2[1], 10) - 1;
@@ -128,7 +122,9 @@ function doCover() {
             lineNum = 0;
           }
 
-          ranges.push(editor.document.lineAt(lineNum));
+          cachedRanges
+            .get(curFileFromLine)
+            ?.push(editor.document.lineAt(lineNum).range);
 
           break;
 
@@ -150,24 +146,37 @@ function doCover() {
 
           if (pos > -1) {
             lastLine = editor.document.lineAt(editor.document.positionAt(pos));
-            ranges.push(lastLine);
+
+            if (!cachedRanges.has(currentFileName)) {
+              cachedRanges.set(currentFileName, []);
+            }
+
+            cachedRanges.get(currentFileName)?.push(lastLine.range);
           }
 
           break;
       }
     }
-
-    cachedRanges.set(currentFileName, ranges);
   }
 
-  LogDebug(`[doCover] lines covered: ${ranges.length}`);
+  let ranges = cachedRanges.get(currentFileName);
+  if (ranges !== undefined) {
+    LogDebug(`[doCover] lines covered: ${ranges.length}`);
+    editor.setDecorations(coverageDecor, ranges);
+  }
 
-  editor.setDecorations(coverageDecor, ranges);
+  // editor.setDecorations(coverageDecor, ranges);
 }
 
 function doUncover() {
   // vscode.window.showInformationMessage("ebpf-cover: uncovering");
 
-  coverageDecor.dispose();
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    LogDebug("[doUncover] no active editor");
+    return;
+  }
+
+  editor.setDecorations(coverageDecor, []);
   cachedRanges = new Map();
 }
