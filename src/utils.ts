@@ -6,7 +6,6 @@ import * as fs from "fs";
 const IsDebug = true;
 
 // const errFile = "local/investigations/load-errors/err.log";
-export const VerifierFileName = "verifier.log";
 
 let logger: vscode.OutputChannel =
   vscode.window.createOutputChannel("ebpf-cover");
@@ -22,16 +21,22 @@ export function LogDebug(text: any) {
   logger.appendLine(`[debug] ${text}`);
 }
 
-const BpfFolder: string = "bpf";
-
-export function BpfFiles() {
-  let bpfFolder = path.join(GetWorkspacePath(), BpfFolder);
-  return fs
-    .readdirSync(bpfFolder, { recursive: true, withFileTypes: true })
-    .filter((item) => !item.isDirectory())
-    .map((item) => item.parentPath);
-}
-
 export function GetWorkspacePath(): string {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
+}
+
+export async function PickVerifierLogFile(): Promise<string> {
+  const result = await vscode.window.showOpenDialog({
+    canSelectFiles: true,
+    canSelectFolders: false,
+    canSelectMany: false,
+    openLabel: "Select verifier log",
+  });
+
+  if (!result || result.length === 0) {
+    return "";
+  }
+
+  const fileUri = result[0];
+  return fileUri.fsPath;
 }

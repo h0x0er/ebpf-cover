@@ -15,11 +15,11 @@
     "commands": [
       {
         "command": "ebpf-cover.doCover",
-        "title": "ebpf-cover: Add coverage for current file "
+        "title": "ebpf-cover: Add coverage "
       },
-         {
+      {
         "command": "ebpf-cover.unCover",
-        "title": "ebpf-cover: Remove coverage from current file "
+        "title": "ebpf-cover: Remove coverage"
       }
     ]
   },

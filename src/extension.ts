@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 
-import { GetWorkspacePath, Log, LogDebug, VerifierFileName } from "./utils";
+import { GetWorkspacePath, Log, LogDebug, PickVerifierLogFile } from "./utils";
 
 let coverageDecor: vscode.TextEditorDecorationType =
   vscode.window.createTextEditorDecorationType({
@@ -13,11 +13,10 @@ let coverageDecor: vscode.TextEditorDecorationType =
   });
 
 let cachedRanges: Map<string, Array<vscode.Range>> = new Map();
+let VerifierLogPath: string = "";
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
   Log("epbf-cover init");
-
-  // Log(`[sub-files] ${BpfFiles()}`);
 
   let cover = vscode.commands.registerCommand("ebpf-cover.doCover", () => {
     doCover();
@@ -31,16 +30,30 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(cover);
   context.subscriptions.push(unCover);
 
-  // apply cover on current-file as well
   vscode.window.onDidChangeActiveTextEditor((editor) => {
     doCover();
   });
 }
 
-// This method is called when your extension is deactivated
-export function deactivate() {}
+export async function deactivate() {}
 
-function doCover() {
+async function doCover() {
+  const workspace = GetWorkspacePath();
+
+  if (VerifierLogPath.length == 0) {
+    VerifierLogPath = path.join(workspace, "verifier.log2"); // default log path
+  }
+
+  LogDebug(`[doCover] logPath=${VerifierLogPath}`);
+  if (!fs.existsSync(VerifierLogPath)) {
+    VerifierLogPath = await PickVerifierLogFile();
+  }
+
+  if (!fs.existsSync(VerifierLogPath)) {
+    Log(`[doCover] verifier log-file not found path=${VerifierLogPath}`);
+    return;
+  }
+
   let seen = new Set<string>();
 
   let lastLine: vscode.TextLine | undefined = {
@@ -73,22 +86,13 @@ function doCover() {
   }
 
   const currentFileName = path.basename(currentFile);
-  const workspace = GetWorkspacePath();
-
-  const currentRanges = cachedRanges.get(currentFileName);
 
   LogDebug(`[doCover] ${currentFile} ${workspace}`);
 
   if (cachedRanges.has(currentFileName)) {
     LogDebug("[doCover] cover already found !");
   } else {
-    const verifierLogFile = path.join(workspace, VerifierFileName);
-
-    if (!fs.existsSync(verifierLogFile)) {
-      Log(`[doCover] verifier log-file not found path=${verifierLogFile}`);
-    }
-
-    const content = fs.readFileSync(verifierLogFile, "utf8");
+    const content = fs.readFileSync(VerifierLogPath, "utf8");
     const lines = content.split("\n");
 
     for (let i = 0; i < lines.length; i++) {
@@ -103,10 +107,9 @@ function doCover() {
         case 1:
           LogDebug(`[doCover] ${line} parseType=${parseType}`);
 
-          if (seen.has(line)) {
+          if (!line.startsWith("; ")) {
             continue;
           }
-          seen.add(line);
 
           let parts = line.split("@ ");
           let parts2 = parts[1].split(":"); // map_utils.h:9
@@ -134,7 +137,6 @@ function doCover() {
           }
 
           line = line.slice(2);
-
           if (seen.has(line)) {
             continue;
           }
@@ -164,19 +166,17 @@ function doCover() {
     LogDebug(`[doCover] lines covered: ${ranges.length}`);
     editor.setDecorations(coverageDecor, ranges);
   }
-
-  // editor.setDecorations(coverageDecor, ranges);
 }
 
 function doUncover() {
-  // vscode.window.showInformationMessage("ebpf-cover: uncovering");
-
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     LogDebug("[doUncover] no active editor");
     return;
   }
 
+  Log("[doUncover] removing coverage");
   editor.setDecorations(coverageDecor, []);
   cachedRanges = new Map();
+  VerifierLogPath = "";
 }
