@@ -1,7 +1,4 @@
-import * as path from "path";
 import * as vscode from "vscode";
-
-import * as fs from "fs";
 
 const IsDebug = true;
 
@@ -9,6 +6,18 @@ const IsDebug = true;
 
 let logger: vscode.OutputChannel =
   vscode.window.createOutputChannel("ebpf-cover");
+
+export function CreateLogger(tag: string) {
+  if (IsDebug) {
+    return (text: any) => {
+      logger.appendLine(`[debug] [${tag}] ${text}`);
+    };
+  } else {
+    return (text: any) => {
+      logger.appendLine(`[${tag}] ${text}`);
+    };
+  }
+}
 
 export function Log(text: any) {
   logger.appendLine(text);

@@ -3,7 +3,12 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 
-import { GetWorkspacePath, Log, LogDebug, PickVerifierLogFile } from "./utils";
+import {
+  CreateLogger,
+  GetWorkspacePath,
+  Log,
+  PickVerifierLogFile,
+} from "./utils";
 
 let coverageDecor: vscode.TextEditorDecorationType =
   vscode.window.createTextEditorDecorationType({
@@ -15,8 +20,12 @@ let coverageDecor: vscode.TextEditorDecorationType =
 let cachedRanges: Map<string, Array<vscode.Range>> = new Map();
 let VerifierLogPath: string = "";
 
+let coverLogger = CreateLogger("doCover");
+let uncoverLogger = CreateLogger("doUncover");
+let log = CreateLogger("generic");
+
 export async function activate(context: vscode.ExtensionContext) {
-  Log("epbf-cover init");
+  log("epbf-cover init");
 
   let cover = vscode.commands.registerCommand("ebpf-cover.doCover", () => {
     doCover();
@@ -44,13 +53,13 @@ async function doCover() {
     VerifierLogPath = path.join(workspace, "verifier.log2"); // default log path
   }
 
-  LogDebug(`[doCover] logPath=${VerifierLogPath}`);
+  coverLogger(`logPath=${VerifierLogPath}`);
   if (!fs.existsSync(VerifierLogPath)) {
     VerifierLogPath = await PickVerifierLogFile();
   }
 
   if (!fs.existsSync(VerifierLogPath)) {
-    Log(`[doCover] verifier log-file not found path=${VerifierLogPath}`);
+    Log(`verifier log-file not found path=${VerifierLogPath}`);
     return;
   }
 
@@ -73,7 +82,7 @@ async function doCover() {
 
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    LogDebug("[doUncover] no active editor");
+    coverLogger("[doUncover] no active editor");
     return;
   }
 
@@ -81,16 +90,16 @@ async function doCover() {
 
   let hasValidExt = currentFile.endsWith(".c") || currentFile.endsWith(".h");
   if (!hasValidExt) {
-    LogDebug("[doCover] extention not supported");
+    coverLogger("extention not supported");
     return;
   }
 
   const currentFileName = path.basename(currentFile);
 
-  LogDebug(`[doCover] ${currentFile} ${workspace}`);
+  coverLogger(`${currentFile} ${workspace}`);
 
   if (cachedRanges.has(currentFileName)) {
-    LogDebug("[doCover] cover already found !");
+    coverLogger("cover already found !");
   } else {
     const content = fs.readFileSync(VerifierLogPath, "utf8");
     const lines = content.split("\n");
@@ -105,7 +114,7 @@ async function doCover() {
 
       switch (parseType) {
         case 1:
-          LogDebug(`[doCover] ${line} parseType=${parseType}`);
+          coverLogger(`${line} parseType=${parseType}`);
 
           if (!line.startsWith("; ")) {
             continue;
@@ -142,7 +151,7 @@ async function doCover() {
           }
           seen.add(line);
 
-          LogDebug(`[doCover] ${line} parseType=${parseType}`);
+          coverLogger(`${line} parseType=${parseType}`);
 
           let pos = editor.document.getText().indexOf(line);
 
@@ -163,19 +172,21 @@ async function doCover() {
 
   let ranges = cachedRanges.get(currentFileName);
   if (ranges !== undefined) {
-    LogDebug(`[doCover] lines covered: ${ranges.length}`);
+    coverLogger(`lines covered: ${ranges.length}`);
     editor.setDecorations(coverageDecor, ranges);
+  } else {
+    Log("coverage not found");
   }
 }
 
 function doUncover() {
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
-    LogDebug("[doUncover] no active editor");
+    uncoverLogger("no active editor");
     return;
   }
 
-  Log("[doUncover] removing coverage");
+  uncoverLogger("removing coverage");
   editor.setDecorations(coverageDecor, []);
   cachedRanges = new Map();
   VerifierLogPath = "";
