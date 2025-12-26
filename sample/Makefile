@@ -10,4 +10,8 @@ main.bpf.o: main.bpf.c
 		-o main.bpf.o
 
 load: main.bpf.o
-	sudo bpftool prog load ./main.bpf.o /sys/fs/bpf/sample 2>&1 | tee -a verifier.log
+	sudo bpftool prog load ./main.bpf.o /sys/fs/bpf/sample 2>&1 | tee verifier.log
+
+clean:
+	rm main.bpf.o
+	rm verifier.log
