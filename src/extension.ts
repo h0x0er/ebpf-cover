@@ -221,4 +221,7 @@ function doUncover() {
 
   cachedRanges = new Map();
   VerifierLogPath = "";
+  
+  failedFuncName = "";
+  errorLines = [""];
 }
