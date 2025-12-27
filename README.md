@@ -2,6 +2,10 @@
 
 ![alt text](./media/usage.gif)
 
+> Inspired by `go tool cover`.
+
+> ⚠️ Coverage is based solely on `source-lines` present in verifier logs.
+
 ## Installation
 
 
