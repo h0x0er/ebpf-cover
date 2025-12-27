@@ -12,3 +12,4 @@ sample/**
 media/**
 .github/**
 .git/**
+*.lock
