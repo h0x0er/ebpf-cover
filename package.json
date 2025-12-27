@@ -1,7 +1,7 @@
 {
   "name": "ebpf-cover",
   "displayName": "eBPF Cover",
-  "description": "Check coverage of ebpf-code by verifier",
+  "description": "Highlight coverage of ebpf-code by verifier",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.0.0"
