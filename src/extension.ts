@@ -63,13 +63,10 @@ async function doCover() {
   const workspace = GetWorkspacePath();
 
   if (VerifierLogPath.length == 0) {
-    VerifierLogPath = path.join(workspace, "verifier.log"); // default log path
+    VerifierLogPath = await PickVerifierLogFile();
   }
 
   coverLogger.debug(`logPath=${VerifierLogPath}`);
-  if (!fs.existsSync(VerifierLogPath)) {
-    VerifierLogPath = await PickVerifierLogFile();
-  }
 
   if (!fs.existsSync(VerifierLogPath)) {
     Log(`verifier log-file not found path=${VerifierLogPath}`);

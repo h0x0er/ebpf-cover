@@ -33,24 +33,6 @@ int handle_egress(struct __sk_buff *skb) {
 
   bpf_ringbuf_submit(eve, 0);
 
-
   return 4;
-}
 
-SEC("cgroup_skb/ingress")
-int handle_ingress(struct __sk_buff *skb) {
-
-  struct event *eve = bpf_ringbuf_reserve(&events, sizeof(struct event), 0);
-
-  if (!eve) {
-    return SK_PASS;
-  }
-
-  struct task_struct *tsk = (struct task_struct *)bpf_get_current_task();
-  eve->pid = BPF_CORE_READ(tsk, tgid);
-  eve->ppid = BPF_CORE_READ(tsk, real_parent, tgid);
-
-  bpf_ringbuf_submit(eve, 0);
-
-  return 3;
 }
