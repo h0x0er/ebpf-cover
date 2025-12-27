@@ -13,3 +13,4 @@ media/**
 .github/**
 .git/**
 *.lock
+node_modules/**

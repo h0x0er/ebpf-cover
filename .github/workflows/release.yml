@@ -32,7 +32,6 @@ jobs:
 
       - name: Package VSCode Extension
         run: |
-          npm run vscode:prepublish
           vsce package
           ls -lh *.vsix
 
