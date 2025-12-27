@@ -1,0 +1,44 @@
+name: Release VSCode Extension
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  packages: write
+  contents: write
+
+jobs:
+  release-extension:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@ec9f2d5744a09debf3a187a3f4f675c53b671911 # v2.13.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout repository
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Package VSCode Extension
+        run: |
+          vsce package
+          ls -lh *.vsix
+
+      - name: Upload to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VSIX_FILE=$(ls *.vsix | head -n 1)
+          echo "Uploading $VSIX_FILE to release ${{ github.event.release.tag_name }}"
+          gh release upload "${{ github.event.release.tag_name }}" "$VSIX_FILE" --clobber

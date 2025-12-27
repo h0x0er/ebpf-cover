@@ -4,7 +4,15 @@
   "description": "Check coverage of ebpf-code by verifier",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.106.0"
+    "vscode": "^1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/h0x0er/ebpf-cover"
+  },
+  "author": {
+    "name": "h0x0er",
+    "url": "https://h0x0er.github.io/"
   },
   "categories": [
     "Other"

@@ -1,4 +1,4 @@
 node_modules
-out/*
+out/test/*
 
 sample/vmlinux.h
