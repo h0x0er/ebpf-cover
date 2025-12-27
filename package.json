@@ -16,7 +16,13 @@
   },
   "publisher": "h0x0er",
   "categories": [
-    "Other"
+    "Other",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "ebpf",
+    "bpf",
+    "coverage"
   ],
   "activationEvents": [],
   "main": "./out/extension.js",
