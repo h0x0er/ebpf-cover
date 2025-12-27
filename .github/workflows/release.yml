@@ -30,6 +30,9 @@ jobs:
       - name: Install vsce
         run: npm install -g @vscode/vsce
 
+      - name: Install deps
+        run: yarn install
+
       - name: Package VSCode Extension
         run: |
           vsce package
