@@ -25,7 +25,9 @@ let VerifierLogPath: string = "";
 
 let failedFuncDecor: vscode.TextEditorDecorationType;
 let failedFuncName = "";
-let failedLine = "";
+let errorLines: [string] = [""];
+
+let endLog = "-- END";
 
 let coverLogger: Logger = CreateLogger("doCover");
 let uncoverLogger: Logger = CreateLogger("doUncover");
@@ -104,11 +106,14 @@ async function doCover() {
       let line = lines[i];
 
       // extract failed line
-      if (failedFuncName.length === 0 && line.startsWith("libbpf:")) {
-        failedFuncName = ExtractFailedFunction(line);
-        if (failedFuncName.length > 0) {
-          failedLine = line;
+      if (line.startsWith("libbpf:")) {
+        if (failedFuncName.length === 0) {
+          failedFuncName = ExtractFailedFunction(line);
           genericLogger.debug(`[failedFunc] found ${failedFuncName}`);
+        }
+
+        if (line.indexOf(endLog) > -1 || errorLines.length > 0) {
+          errorLines.push(line);
         }
       }
 
@@ -183,11 +188,11 @@ async function doCover() {
     if (failedFuncDecor === undefined) {
       failedFuncDecor = vscode.window.createTextEditorDecorationType({
         gutterIconPath: vscode.Uri.file(
-          path.join(extensionPath, "media", "error.svg")
+          path.join(extensionPath, "assets", "error.svg")
         ),
         gutterIconSize: "contain",
 
-        backgroundColor: "rgba(233, 14, 14, 0.12)",
+        backgroundColor: "rgba(233, 14, 14, 0.92)",
         overviewRulerColor: new vscode.ThemeColor("editorError.foreground"),
         overviewRulerLane: vscode.OverviewRulerLane.Right,
       });
@@ -197,7 +202,10 @@ async function doCover() {
     if (mRange != undefined) {
       genericLogger.debug("[failedFunc] decorating");
       editor.setDecorations(failedFuncDecor, [
-        { range: mRange, hoverMessage: failedLine },
+        {
+          range: mRange,
+          hoverMessage: new vscode.MarkdownString(errorLines.join("\n\n")),
+        },
       ]);
     }
   }
