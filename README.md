@@ -1,6 +1,6 @@
 # eBPF Cover
 
-![alt text](./media/usage.gif)
+![ebpf-cover](https://github.com/user-attachments/assets/cdcc4d85-c481-4072-846c-5b62d65ecb62)
 
 > Inspired by `go tool cover`.
 
